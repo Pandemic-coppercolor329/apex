@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# apex.sh — Parallelized system updater
+# Apex — Parallelized system updater
 # (Arch pacman+AUR, Debian/Ubuntu apt, Fedora/RHEL dnf,
 #  plus flatpak and snap)
 #
@@ -28,7 +28,9 @@
 #      started too — while the manager installs and the AUR build keep
 #      running in the background.
 #
-#   4. Everything is joined at the end and a summary is printed.
+#   4. Everything is joined at the end and a summary is printed, including
+#      both the actual (parallel) time taken and what the same work would
+#      have cost if every step had run one after another.
 #
 # Anything not present (pacman, apt, dnf, yay/paru, flatpak, snap) is
 # skipped automatically.
@@ -221,10 +223,17 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 declare -A DOWNLOAD_STATUS=()
+declare -A DOWNLOAD_TIME=()
 declare -A INSTALL_STATUS=()
+declare -A INSTALL_TIME=()
+declare -A INSTALL_START=()
 AUR_STATUS=0
+AUR_TIME=0
+AUR_START_TS=0
 FLATPAK_STATUS=0
+FLATPAK_TIME=0
 SNAP_STATUS=0
+SNAP_TIME=0
 
 # Runs the AUR helper with output forced to English (for reliable marker
 # detection) and line-buffered (so the log fills in real time), tee'd to
@@ -267,8 +276,9 @@ if [[ ${#MANAGERS[@]} -gt 0 ]]; then
         manager_download "$mgr"
         DOWNLOAD_STATUS[$mgr]=$?
         T1=$(date +%s)
+        DOWNLOAD_TIME[$mgr]=$((T1 - T0))
         if [[ ${DOWNLOAD_STATUS[$mgr]} -eq 0 ]]; then
-            ok "$mgr downloads finished in $(human_time $((T1 - T0)))"
+            ok "$mgr downloads finished in $(human_time ${DOWNLOAD_TIME[$mgr]})"
         else
             fail "$mgr download-only step failed (exit ${DOWNLOAD_STATUS[$mgr]})"
             if [[ "$mgr" == "dnf" ]]; then
@@ -283,6 +293,7 @@ section "Starting installs + AUR update in the background"
 
 for mgr in "${MANAGERS[@]}"; do
     log "Starting $mgr install..."
+    INSTALL_START[$mgr]=$(date +%s)
     manager_install "$mgr" &
     INSTALL_PID[$mgr]=$!
 done
@@ -300,6 +311,7 @@ if [[ -n "$AUR_HELPER" ]]; then
             AUR_CMD=("$AUR_HELPER" -Sua --noconfirm --skipreview)
             ;;
     esac
+    AUR_START_TS=$(date +%s)
     run_aur_and_log "${AUR_CMD[@]}" &
     AUR_PID=$!
 else
@@ -313,7 +325,8 @@ if [[ -n "$AUR_PID" ]]; then
         log "Conservative mode: waiting for the AUR update to fully finish..."
         wait "$AUR_PID"
         AUR_STATUS=$?
-        if [[ $AUR_STATUS -eq 0 ]]; then ok "AUR update finished"; else fail "AUR update failed (exit $AUR_STATUS)"; fi
+        AUR_TIME=$(( $(date +%s) - AUR_START_TS ))
+        if [[ $AUR_STATUS -eq 0 ]]; then ok "AUR update finished in $(human_time $AUR_TIME)"; else fail "AUR update failed (exit $AUR_STATUS)"; fi
         AUR_PID=""   # already reaped
     else
         log "Waiting for AUR's initial resolve/clone burst to finish before starting flatpak..."
@@ -331,8 +344,9 @@ if [[ $HAS_FLATPAK -eq 1 ]]; then
     flatpak update -y
     FLATPAK_STATUS=$?
     T1=$(date +%s)
+    FLATPAK_TIME=$((T1 - T0))
     if [[ $FLATPAK_STATUS -eq 0 ]]; then
-        ok "flatpak updated in $(human_time $((T1 - T0)))"
+        ok "flatpak updated in $(human_time $FLATPAK_TIME)"
     else
         fail "flatpak update failed (exit $FLATPAK_STATUS)"
     fi
@@ -348,8 +362,9 @@ if [[ $HAS_SNAP -eq 1 ]]; then
     sudo snap refresh
     SNAP_STATUS=$?
     T1=$(date +%s)
+    SNAP_TIME=$((T1 - T0))
     if [[ $SNAP_STATUS -eq 0 ]]; then
-        ok "snap updated in $(human_time $((T1 - T0)))"
+        ok "snap updated in $(human_time $SNAP_TIME)"
     else
         fail "snap update failed (exit $SNAP_STATUS)"
     fi
@@ -365,8 +380,9 @@ section "Finishing up background jobs"
 for mgr in "${MANAGERS[@]}"; do
     wait "${INSTALL_PID[$mgr]}"
     INSTALL_STATUS[$mgr]=$?
+    INSTALL_TIME[$mgr]=$(( $(date +%s) - INSTALL_START[$mgr] ))
     if [[ ${INSTALL_STATUS[$mgr]} -eq 0 ]]; then
-        ok "$mgr install finished"
+        ok "$mgr install finished in $(human_time ${INSTALL_TIME[$mgr]})"
     else
         fail "$mgr install failed (exit ${INSTALL_STATUS[$mgr]})"
     fi
@@ -375,8 +391,9 @@ done
 if [[ -n "$AUR_PID" ]]; then
     wait "$AUR_PID"
     AUR_STATUS=$?
+    AUR_TIME=$(( $(date +%s) - AUR_START_TS ))
     if [[ $AUR_STATUS -eq 0 ]]; then
-        ok "AUR update finished"
+        ok "AUR update finished in $(human_time $AUR_TIME)"
     else
         fail "AUR update failed (exit $AUR_STATUS)"
     fi
@@ -384,13 +401,20 @@ fi
 
 # ---------- summary ----------
 SCRIPT_END=$(date +%s)
-TOTAL=$((SCRIPT_END - SCRIPT_START))
+PARALLEL_TOTAL=$((SCRIPT_END - SCRIPT_START))
+
+# "Without parallelization" = what it would have cost to run every single
+# step back-to-back (downloads were already sequential either way; the
+# difference comes entirely from overlapping installs/AUR/flatpak/snap).
+SEQUENTIAL_TOTAL=0
+for mgr in "${MANAGERS[@]}"; do
+    SEQUENTIAL_TOTAL=$((SEQUENTIAL_TOTAL + ${DOWNLOAD_TIME[$mgr]:-0} + ${INSTALL_TIME[$mgr]:-0}))
+done
+SEQUENTIAL_TOTAL=$((SEQUENTIAL_TOTAL + AUR_TIME + FLATPAK_TIME + SNAP_TIME))
 
 section "Summary"
-echo "Total time: $(human_time $TOTAL)"
 
 OVERALL_STATUS=0
-
 for mgr in "${MANAGERS[@]}"; do
     if [[ ${INSTALL_STATUS[$mgr]:-0} -ne 0 ]]; then
         fail "$mgr failed (exit ${INSTALL_STATUS[$mgr]})"
@@ -407,9 +431,22 @@ for pair in "aur:$AUR_STATUS" "flatpak:$FLATPAK_STATUS" "snap:$SNAP_STATUS"; do
 done
 [[ $OVERALL_STATUS -eq 0 ]] && ok "Everything updated successfully."
 
+echo
+echo "Time without parallelization (sum of every step run back-to-back): $(human_time $SEQUENTIAL_TOTAL)"
+echo "Time with parallelization    (actual wall-clock time taken):       $(human_time $PARALLEL_TOTAL)"
+if [[ $SEQUENTIAL_TOTAL -gt $PARALLEL_TOTAL ]]; then
+    SAVED=$((SEQUENTIAL_TOTAL - PARALLEL_TOTAL))
+    if [[ $SEQUENTIAL_TOTAL -gt 0 ]]; then
+        PCT=$(( SAVED * 100 / SEQUENTIAL_TOTAL ))
+    else
+        PCT=0
+    fi
+    echo "Saved: $(human_time $SAVED) (${PCT}%)"
+fi
+
 if [[ $NOTIFY -eq 1 ]] && command -v notify-send &>/dev/null; then
     if [[ $OVERALL_STATUS -eq 0 ]]; then
-        notify-send "System update complete" "Finished in $(human_time $TOTAL)" 2>/dev/null || true
+        notify-send "System update complete" "Finished in $(human_time $PARALLEL_TOTAL) (would've been $(human_time $SEQUENTIAL_TOTAL) sequential)" 2>/dev/null || true
     else
         notify-send -u critical "System update finished with errors" "Check the terminal output" 2>/dev/null || true
     fi
