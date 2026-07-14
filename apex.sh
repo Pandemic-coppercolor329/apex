@@ -4,7 +4,7 @@
 # (Arch pacman+AUR, Debian/Ubuntu apt, Fedora/RHEL dnf,
 #  plus flatpak and snap)
 #
-# The script does NOT assume these are mutually exclusive — pacman, apt,
+# The script does NOT assume these are mutually exclusive: pacman, apt,
 # and dnf are each detected independently and handled if present, whether
 # alone or side by side (e.g. inside containers/WSL/unusual setups).
 #
@@ -25,7 +25,7 @@
 #
 #   3. As soon as the AUR helper finishes its upfront resolve/clone burst
 #      and starts actually building packages, flatpak then snap are
-#      started too — while the manager installs and the AUR build keep
+#      started too, while the manager installs and the AUR build keep
 #      running in the background.
 #
 #   4. Everything is joined at the end and a summary is printed, including
@@ -43,8 +43,8 @@
 #   That line comes from makepkg itself (not the AUR helper's own wrapper
 #   text), and has been stable across versions for years. We watch the AUR
 #   helper's log for the first occurrence of that line and treat it as "the
-#   upfront download burst is done, real building has started" — a
-#   reasonable, if not perfectly exact, proxy. Per-package source downloads
+#   upfront download burst is done, real building has started" (a
+#   reasonable, if not perfectly exact, proxy). Per-package source downloads
 #   inside individual builds can still trickle in after this point; those
 #   are typically small next to compile time. LC_ALL=C is forced on that
 #   one subprocess so the line is always in English regardless of your
@@ -58,7 +58,7 @@
 #     config file.
 #   - dnf's --downloadonly needs the "download" plugin from
 #     dnf-plugins-core. If it's missing, the download-only step will fail;
-#     the script logs that but keeps going — the later install step still
+#     the script logs that but keeps going: the later install step still
 #     does a normal (download+install) upgrade, it just won't have had the
 #     benefit of pre-fetching.
 #
@@ -70,7 +70,7 @@
 #   - In theory, a manager's own install step and the AUR helper's final
 #     `pacman -U` could both want the pacman DB lock at once. In practice
 #     this essentially never happens, since building AUR packages takes far
-#     longer than installing already-cached packages — but if you ever see
+#     longer than installing already-cached packages, but if you ever see
 #     "unable to lock database", just re-run the script.
 #
 set -uo pipefail
@@ -266,7 +266,7 @@ wait_for_aur_build_start() {
 }
 
 # ---------- phase: download-only for each system package manager, serialized ----------
-# The clock starts here, not at script launch — this excludes the sudo
+# The clock starts here, not at script launch. This excludes the sudo
 # password prompt, tool detection, and setup from both timing numbers, so
 # "time with/without parallelization" measures actual update work, not how
 # long you took to type your password.
@@ -286,7 +286,7 @@ if [[ ${#MANAGERS[@]} -gt 0 ]]; then
         else
             fail "$mgr download-only step failed (exit ${DOWNLOAD_STATUS[$mgr]})"
             if [[ "$mgr" == "dnf" ]]; then
-                warn "This often means the 'download' plugin (dnf-plugins-core) isn't installed. Continuing — dnf's install step below will just download+install together."
+                warn "This often means the 'download' plugin (dnf-plugins-core) isn't installed. Continuing: dnf's install step below will just download+install together."
             fi
         fi
     done
@@ -320,7 +320,7 @@ if [[ -n "$AUR_HELPER" ]]; then
     AUR_PID=$!
 else
     [[ $SKIP_AUR -eq 1 ]] && log "AUR updates skipped (--no-aur)."
-    [[ $SKIP_AUR -eq 0 ]] && warn "No AUR helper (yay/paru) found — skipping AUR updates."
+    [[ $SKIP_AUR -eq 0 ]] && warn "No AUR helper (yay/paru) found, skipping AUR updates."
 fi
 
 # ---------- wait for the right moment to start flatpak/snap ----------
@@ -335,7 +335,7 @@ if [[ -n "$AUR_PID" ]]; then
     else
         log "Waiting for AUR's initial resolve/clone burst to finish before starting flatpak..."
         wait_for_aur_build_start
-        ok "AUR build phase reached — starting flatpak/snap now while it keeps building."
+        ok "AUR build phase reached, starting flatpak/snap now while it keeps building."
     fi
 fi
 
@@ -357,7 +357,7 @@ if [[ $HAS_FLATPAK -eq 1 ]]; then
 elif [[ $SKIP_FLATPAK -eq 1 ]]; then
     log "flatpak skipped (--no-flatpak)."
 else
-    log "flatpak not installed — skipping."
+    log "flatpak not installed, skipping."
 fi
 
 if [[ $HAS_SNAP -eq 1 ]]; then
@@ -375,7 +375,7 @@ if [[ $HAS_SNAP -eq 1 ]]; then
 elif [[ $SKIP_SNAP -eq 1 ]]; then
     log "snap skipped (--no-snap)."
 else
-    log "snap not installed — skipping."
+    log "snap not installed, skipping."
 fi
 
 # ---------- join remaining background jobs ----------
@@ -434,6 +434,22 @@ for pair in "aur:$AUR_STATUS" "flatpak:$FLATPAK_STATUS" "snap:$SNAP_STATUS"; do
     fi
 done
 [[ $OVERALL_STATUS -eq 0 ]] && ok "Everything updated successfully."
+
+echo
+echo "Time per step:"
+for mgr in "${MANAGERS[@]}"; do
+    printf "  %-10s %-10s %s\n" "$mgr" "download" "$(human_time ${DOWNLOAD_TIME[$mgr]:-0})"
+    printf "  %-10s %-10s %s\n" "$mgr" "install" "$(human_time ${INSTALL_TIME[$mgr]:-0})"
+done
+if [[ -n "$AUR_HELPER" ]]; then
+    printf "  %-10s %-10s %s\n" "aur" "" "$(human_time $AUR_TIME)"
+fi
+if [[ $HAS_FLATPAK -eq 1 ]]; then
+    printf "  %-10s %-10s %s\n" "flatpak" "" "$(human_time $FLATPAK_TIME)"
+fi
+if [[ $HAS_SNAP -eq 1 ]]; then
+    printf "  %-10s %-10s %s\n" "snap" "" "$(human_time $SNAP_TIME)"
+fi
 
 echo
 echo "Time without parallelization (sum of every step run back-to-back): $(human_time $SEQUENTIAL_TOTAL)"
